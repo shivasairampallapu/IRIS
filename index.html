@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>IRIS Vision AI — Stark Industries</title>
+
+  <!-- Fonts: Rajdhani (data readouts) + Orbitron (display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet.js for mini-map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       BOOT SEQUENCE OVERLAY  (shown on first load)
+  ═══════════════════════════════════════════════════ -->
+  <div id="bootOverlay" class="boot-overlay">
+    <div class="boot-logo">
+      <div class="boot-reactor">
+        <div class="reactor-ring r1"></div>
+        <div class="reactor-ring r2"></div>
+        <div class="reactor-ring r3"></div>
+        <div class="reactor-core"></div>
+      </div>
+      <div class="boot-title">
+        <span class="boot-stark">STARK INDUSTRIES</span>
+        <span class="boot-IRIS">I.R.I.S</span>
+        <span class="boot-version">VISION AI // BUILD 7.4.1</span>
+      </div>
+    </div>
+    <div class="boot-log" id="bootLog"></div>
+    <div class="boot-bar-wrap">
+      <div class="boot-bar" id="bootBar"></div>
+    </div>
+    <div class="boot-bottom">INITIALIZING NEURAL NETWORK SUBSYSTEMS…</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYER 0 — FULLSCREEN CAMERA FEED
+  ═══════════════════════════════════════════════════ -->
+  <video id="cameraFeed" autoplay muted playsinline></video>
+
+  <!-- Canvas for scan & detection overlays -->
+  <canvas id="hudCanvas"></canvas>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYER 1 — GLOBAL HUD OVERLAYS
+  ═══════════════════════════════════════════════════ -->
+
+  <!-- Scanline vignette -->
+  <div class="hud-scanlines"></div>
+  <div class="hud-vignette"></div>
+  <div class="hud-chromatic"></div>
+
+  <!-- Global data-stream lines (decorative) -->
+  <canvas id="dataStreamCanvas"></canvas>
+
+  <!-- ── TOP CHROME BAR ── -->
+  <div class="chrome-top">
+    <div class="chrome-left">
+      <span class="chrome-label">SYS</span>
+      <span id="sysTime" class="chrome-value">00:00:00</span>
+    </div>
+    <div class="chrome-center">
+      <span class="chrome-title">I.R.I.S · VISION AI</span>
+      <span class="chrome-subtitle" id="modeLabel">STANDBY MODE</span>
+    </div>
+    <div class="chrome-right">
+      <span class="chrome-label">FPS</span>
+      <span id="fpsMeter" class="chrome-value">--</span>
+      <span class="chrome-sep">|</span>
+      <span class="chrome-label">LAT</span>
+      <span id="latMeter" class="chrome-value">--ms</span>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM CHROME BAR ── -->
+  <div class="chrome-bottom">
+    <div class="chrome-ticker" id="chromeTicker">
+      STARK INDUSTRIES · I.R.I.S VISION AI · NEURAL CORE ACTIVE · SCANNING ENVIRONMENT · OBJECT RECOGNITION ONLINE · VOICE INTERFACE READY ·&nbsp;
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYER 2 — FLOATING HUD PANELS
+  ═══════════════════════════════════════════════════ -->
+
+  <!-- ── TOP-LEFT: SYSTEM STATUS ── -->
+  <div class="hud-panel panel-tl" id="panelStatus">
+    <div class="panel-corner c-tl"></div>
+    <div class="panel-corner c-tr"></div>
+    <div class="panel-corner c-bl"></div>
+    <div class="panel-corner c-br"></div>
+    <div class="panel-header">
+      <span class="panel-dot active"></span>
+      SYSTEM STATUS
+    </div>
+    <div class="status-rows">
+      <div class="status-row">
+        <span class="sr-label">CAMERA</span>
+        <span class="sr-bar"><span id="camBar" class="sr-fill" style="width:0%"></span></span>
+        <span class="sr-val" id="camVal">OFFLINE</span>
+      </div>
+      <div class="status-row">
+        <span class="sr-label">NEURAL AI</span>
+        <span class="sr-bar"><span id="aiBar" class="sr-fill" style="width:0%"></span></span>
+        <span class="sr-val" id="aiVal">STANDBY</span>
+      </div>
+      <div class="status-row">
+        <span class="sr-label">VOICE SYS</span>
+        <span class="sr-bar"><span id="voiceBar" class="sr-fill" style="width:0%"></span></span>
+        <span class="sr-val" id="voiceVal">READY</span>
+      </div>
+      <div class="status-row">
+        <span class="sr-label">GPS LOC</span>
+        <span class="sr-bar"><span id="gpsBar" class="sr-fill" style="width:0%"></span></span>
+        <span class="sr-val" id="gpsVal">LOCATING</span>
+      </div>
+    </div>
+    <div class="panel-metrics">
+      <div class="metric">
+        <div class="metric-val" id="tempVal">21.4°C</div>
+        <div class="metric-label">PROC TEMP</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="memVal">4.2GB</div>
+        <div class="metric-label">MEMORY</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="upVal">00:00</div>
+        <div class="metric-label">UPTIME</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TOP-RIGHT: AI RESPONSE ── -->
+  <div class="hud-panel panel-tr" id="panelAI">
+    <div class="panel-corner c-tl"></div>
+    <div class="panel-corner c-tr"></div>
+    <div class="panel-corner c-bl"></div>
+    <div class="panel-corner c-br"></div>
+    <div class="panel-header">
+      <span class="panel-dot" id="aiPanelDot"></span>
+      I.R.I.S · AI ANALYSIS
+    </div>
+
+    <!-- Language selector -->
+    <div class="lang-bar">
+      <span class="lang-label">LANG</span>
+      <select id="langSelect" class="lang-select">
+        <option value="en">ENG</option>
+        <option value="hi">हिन्दी</option>
+        <option value="te">తెలుగు</option>
+        <option value="ta">தமிழ்</option>
+        <option value="fr">FRA</option>
+        <option value="de">DEU</option>
+        <option value="es">ESP</option>
+        <option value="ja">JPN</option>
+        <option value="zh">ZHO</option>
+        <option value="ar">عربي</option>
+      </select>
+    </div>
+
+    <div class="ai-response-box" id="aiResponseBox">
+      <div class="ai-idle">
+        <div class="idle-circles">
+          <div class="idle-c ic1"></div>
+          <div class="idle-c ic2"></div>
+          <div class="idle-c ic3"></div>
+        </div>
+        <p class="idle-text">AWAITING SCAN INPUT…</p>
+      </div>
+    </div>
+
+    <!-- OCR section -->
+    <div class="ocr-section" id="ocrSection" style="display:none">
+      <div class="ocr-header">
+        <span>TEXT DETECTED</span>
+        <button class="ocr-speak-btn" id="ocrSpeakBtn" title="Read aloud">▶ VOCALIZE</button>
+      </div>
+      <div class="ocr-output" id="ocrOutput"></div>
+    </div>
+
+    <!-- Detected objects -->
+    <div class="objects-section" id="objectsSection" style="display:none">
+      <div class="ocr-header">OBJECT MANIFEST</div>
+      <div class="objects-list" id="objectsList"></div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM-LEFT: RADAR ── -->
+  <div class="hud-panel panel-bl" id="panelRadar">
+    <div class="panel-corner c-tl"></div>
+    <div class="panel-corner c-tr"></div>
+    <div class="panel-corner c-bl"></div>
+    <div class="panel-corner c-br"></div>
+    <div class="panel-header">
+      <span class="panel-dot active"></span>
+      ENVIRONMENT RADAR
+    </div>
+    <canvas id="radarCanvas" width="200" height="200"></canvas>
+    <div class="radar-info">
+      <span id="radarRange">RANGE: 50m</span>
+      <span id="radarTargets">TARGETS: 0</span>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM-RIGHT: MAP ── -->
+  <div class="hud-panel panel-br" id="panelMap">
+    <div class="panel-corner c-tl"></div>
+    <div class="panel-corner c-tr"></div>
+    <div class="panel-corner c-bl"></div>
+    <div class="panel-corner c-br"></div>
+    <div class="panel-header">
+      <span class="panel-dot" id="mapDot"></span>
+      TACTICAL LOCATION
+    </div>
+    <div id="miniMap"></div>
+    <div class="map-coords" id="mapCoords">LAT: ——  LON: ——</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYER 3 — CENTER RETICLE / SCANNER
+  ═══════════════════════════════════════════════════ -->
+  <div class="center-hud" id="centerHud">
+
+    <!-- Orbit rings -->
+    <div class="orbit-ring or1"></div>
+    <div class="orbit-ring or2"></div>
+    <div class="orbit-ring or3"></div>
+    <div class="orbit-ring or4"></div>
+
+    <!-- Cross-hair -->
+    <div class="crosshair">
+      <div class="ch-line ch-top"></div>
+      <div class="ch-line ch-bottom"></div>
+      <div class="ch-line ch-left"></div>
+      <div class="ch-line ch-right"></div>
+      <div class="ch-center"></div>
+    </div>
+
+    <!-- Corner brackets -->
+    <div class="scan-bracket sb-tl"></div>
+    <div class="scan-bracket sb-tr"></div>
+    <div class="scan-bracket sb-bl"></div>
+    <div class="scan-bracket sb-br"></div>
+
+    <!-- Scan beam (activates during analysis) -->
+    <div class="scan-beam" id="scanBeam"></div>
+
+    <!-- Target lock ring -->
+    <div class="target-lock" id="targetLock"></div>
+
+    <!-- Center dot text -->
+    <div class="center-label" id="centerLabel">READY</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYER 4 — CONTROL DOCK (bottom center)
+  ═══════════════════════════════════════════════════ -->
+  <div class="control-dock" id="controlDock">
+
+    <div class="api-warning" id="apiWarning">
+      SYSTEM READY — <button id="openConfigBtn" class="inline-link">CONFIGURE</button>
+    </div>
+
+    <div class="dock-buttons">
+      <!-- Camera -->
+      <button class="dock-btn btn-camera" id="cameraBtn" title="Toggle Camera">
+        <div class="dock-btn-ring"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span>CAMERA</span>
+      </button>
+
+      <!-- Scan / Analyze -->
+      <button class="dock-btn btn-scan dock-primary" id="scanBtn" title="Scan &amp; Analyze" disabled>
+        <div class="dock-btn-ring"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+        <span>SCAN</span>
+      </button>
+
+      <!-- Voice -->
+      <button class="dock-btn btn-voice" id="voiceBtn" title="Voice Command">
+        <div class="dock-btn-ring"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span>VOICE</span>
+      </button>
+
+      <!-- Upload -->
+      <button class="dock-btn btn-upload" id="uploadBtn" title="Upload Image">
+        <div class="dock-btn-ring"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>UPLOAD</span>
+      </button>
+
+      <!-- Config -->
+      <button class="dock-btn btn-config" id="configBtn" title="Configure API">
+        <div class="dock-btn-ring"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33A1.65 1.65 0 0 0 14 20.82V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>CONFIG</span>
+      </button>
+    </div>
+
+    <!-- Voice transcript bar -->
+    <div class="voice-transcript-bar" id="voiceBar2" style="display:none">
+      <span class="vt-icon">◉</span>
+      <span id="voiceTranscriptText">LISTENING…</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       CONFIG MODAL
+  ═══════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="configModal">
+    <div class="modal-box">
+      <div class="modal-corner mc-tl"></div>
+      <div class="modal-corner mc-tr"></div>
+      <div class="modal-corner mc-bl"></div>
+      <div class="modal-corner mc-br"></div>
+
+      <div class="modal-header">
+        <span>STARK INDUSTRIES — SYSTEM CONFIG</span>
+        <button id="closeConfig" class="modal-close">✕</button>
+      </div>
+
+      <div class="modal-body">
+          <div class="config-group">
+          <label>AI PERSONA MODE</label>
+          <select id="personaSelect" class="config-select">
+            <option value="IRIS">JARVIS (Technical)</option>
+            <option value="friday">FRIDAY (Friendly)</option>
+            <option value="edith">EDITH (Military)</option>
+          </select>
+        </div>
+
+        <div class="config-group">
+          <label>VOICE PITCH  <span id="pitchLabel">1.0</span></label>
+          <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1" class="config-range" />
+        </div>
+
+        <div class="config-group">
+          <label>VOICE RATE  <span id="rateLabel">1.0×</span></label>
+          <input type="range" id="rateRange" min="0.5" max="2" step="0.1" value="1" class="config-range" />
+        </div>
+
+        <div class="config-group row-check">
+          <label class="check-label">
+            <input type="checkbox" id="autoSpeakCheck" checked />
+            <span class="check-box"></span>
+            AUTO-SPEAK RESPONSES
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="beginnerCheck" />
+            <span class="check-box"></span>
+            SIMPLIFIED EXPLANATIONS
+          </label>
+        </div>
+      </div>
+
+      <button class="modal-save" id="saveConfig">SAVE CONFIGURATION</button>
+    </div>
+  </div>
+
+  <!-- Hidden elements -->
+  <input type="file" id="fileInput" accept="image/*" style="display:none" />
+  <canvas id="captureCanvas" style="display:none"></canvas>
+
+  <!-- Toast -->
+  <div class="IRIS-toast" id="jToast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
